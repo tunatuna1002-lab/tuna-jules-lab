@@ -1,2 +1,2 @@
 # tuna-jules-lab
-gemini cli jules 등 실험
+rag 와 ontology를 이용한 agent 구축 준비중
