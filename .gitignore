@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+ranking_history.db
+ranking_dump.csv
+chroma_db/
+test_ranking.db
+debug_cosme.py
