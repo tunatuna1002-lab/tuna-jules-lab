@@ -4,7 +4,7 @@ import random
 import time
 from datetime import datetime
 from typing import List, Dict
-from src.crawlers.base import USER_AGENTS
+from src.config import USER_AGENTS
 
 def get_random_headers() -> Dict[str, str]:
     return {
@@ -33,13 +33,7 @@ def scrape_amazon_category(url: str) -> List[Dict]:
     soup = BeautifulSoup(response.text, "html.parser")
     products = []
 
-    # Amazon Best Sellers grid selector
-    # Depending on the specific page layout, this might vary.
-    # Usually `zg-grid-general-faceout` works for the main best sellers grid.
     items = soup.select("div.zg-grid-general-faceout")
-    if not items:
-        # Fallback or alternative layout check could go here
-        pass
 
     for idx, item in enumerate(items, start=1):
         # Title

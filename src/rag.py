@@ -3,25 +3,24 @@ from sentence_transformers import SentenceTransformer
 import sqlite3
 import networkx as nx
 from typing import List, Dict, Any
-import datetime
-import os
-
-# --- Constants ---
-DB_PATH = "ranking_history.db"
-CHROMA_PATH = "./chroma_db"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-
-# --- RAG Class ---
+from src.config import DB_PATH, CHROMA_PATH, EMBEDDING_MODEL_NAME
+from src.knowledge_graph import build_graph
 
 class RankingRAG:
     def __init__(self):
         # Initialize Embedding Model
-        # Using a lightweight model suitable for CPU
         self.encoder = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
         # Initialize Vector DB (Chroma)
         self.chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
         self.collection = self.chroma_client.get_or_create_collection(name="ranking_records")
+
+        # Initialize Graph (Lazily or eager)
+        # In a real app, you might cache this or load it on demand
+        try:
+            self.graph = build_graph(DB_PATH)
+        except Exception:
+            self.graph = nx.DiGraph() # fallback if DB empty
 
     def index_data(self):
         """
@@ -31,19 +30,13 @@ class RankingRAG:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
 
-        # Join tables to get full context
         query = """
         SELECT r.id, p.name as product, c.name as category, pl.name as platform,
-               r.rank, r.timestamp, r.price, r.rating
+               r.rank, r.timestamp, r.price, r.rating, p.id
         FROM ranking r
         JOIN product p ON r.product_id = p.id
         JOIN category c ON r.category_id = c.id
         JOIN platform pl ON r.platform_id = pl.id
-        WHERE r.id NOT IN (
-            -- Avoid re-indexing (naive check, in prod use a tracking table)
-            -- For now, we will just upsert everything or handle duplicates via ID
-            SELECT -1
-        )
         ORDER BY r.timestamp DESC
         LIMIT 500
         """
@@ -55,10 +48,8 @@ class RankingRAG:
         metadatas = []
 
         for row in records:
-            rid, prod, cat, plat, rank, ts, price, rating = row
+            rid, prod, cat, plat, rank, ts, price, rating, pid = row
 
-            # Create a natural language summary
-            # "On 2023-10-27, 'Laneige Lip Mask' was ranked #1 in 'Lip Care' on Amazon US. Price: $24."
             text = (
                 f"On {ts}, the product '{prod}' was ranked #{rank} "
                 f"in the category '{cat}' on platform '{plat}'. "
@@ -71,6 +62,7 @@ class RankingRAG:
             ids.append(str(rid))
             documents.append(text)
             metadatas.append({
+                "product_id": pid,
                 "product": prod,
                 "category": cat,
                 "platform": plat,
@@ -94,7 +86,7 @@ class RankingRAG:
 
     def retrieve_context(self, query: str, top_k: int = 5) -> List[str]:
         """
-        Search Vector DB for relevant ranking records.
+        Search Vector DB for relevant ranking records and augment with Graph context.
         """
         query_embedding = self.encoder.encode([query]).tolist()
         results = self.collection.query(
@@ -102,11 +94,43 @@ class RankingRAG:
             n_results=top_k
         )
 
-        # Flatten results
         retrieved_texts = []
+        product_ids_found = set()
+
         if results['documents']:
-            for doc in results['documents'][0]:
+            for i, doc in enumerate(results['documents'][0]):
                 retrieved_texts.append(doc)
+                # Check metadata for product ID to traverse graph
+                meta = results['metadatas'][0][i]
+                if 'product_id' in meta:
+                    product_ids_found.add(meta['product_id'])
+
+        # Graph Augmentation
+        # For each found product, find other related info in the graph (e.g., other categories it belongs to)
+        if self.graph:
+            for pid in product_ids_found:
+                node_id = f"Prod{pid}"
+                if self.graph.has_node(node_id):
+                    # Find all rankings for this product
+                    # Edges: Product --rankedAs--> Ranking
+                    ranking_nodes = [n for n in self.graph.successors(node_id)]
+
+                    # We can't list ALL, but maybe mention "Also ranked in..."
+                    # Or find if it is listed in other categories
+
+                    # Traverse: Product -> Ranking -> Category
+                    categories = set()
+                    for r_node in ranking_nodes:
+                         # Ranking -> Category
+                         for neighbor in self.graph.successors(r_node):
+                             if neighbor.startswith("C"):
+                                 cat_name = self.graph.nodes[neighbor].get('name', 'Unknown')
+                                 categories.add(cat_name)
+
+                    if categories:
+                         cats_str = ", ".join(categories)
+                         prod_name = self.graph.nodes[node_id].get('name', 'Product')
+                         retrieved_texts.append(f"Graph Insight: {prod_name} has appeared in categories: {cats_str}.")
 
         return retrieved_texts
 
@@ -134,33 +158,21 @@ Answer:
     def mock_llm_call(self, prompt: str) -> str:
         """
         Simulates the LLM generation.
-        In a real scenario, this would call `google.generativeai` or OpenAI.
         """
-        # For demonstration, we just return a static message or a simple rule-based response
-        # indicating that this is where the LLM would generate text.
-
         return (
             "[MOCK LLM OUTPUT]\n"
-            "Based on the retrieved data, here is the analysis:\n"
-            "The data shows recent rankings for the requested products. "
-            "(This is a placeholder response. To generate real insights, connect a valid API key "
-            "and uncomment the LLM call code in src/rag.py)"
+            "Based on the retrieved data and knowledge graph insights, here is the analysis:\n"
+            "The system found relevant ranking information. "
+            "Laneige products (or similar competitors) have been tracked in the database. "
+            "Graph traversal indicates the product appears in multiple categories.\n"
+            "(Please configure a valid API key in `src/rag.py` to generate a full natural language response.)"
         )
 
     def answer_question(self, query: str) -> str:
-        # 1. Retrieve
         context = self.retrieve_context(query)
-
-        # 2. Augment (Prompt)
         prompt = self.generate_prompt(query, context)
-
-        # 3. Generate
         answer = self.mock_llm_call(prompt)
-
         return answer
 
 if __name__ == "__main__":
-    # Test run
     rag = RankingRAG()
-    # rag.index_data() # Only run if DB has data
-    # print(rag.answer_question("How is Laneige performing?"))

@@ -1,12 +1,11 @@
 import sqlite3
 from typing import List, Dict, Optional
+from src.config import DB_PATH
 
-def init_db(db_path: str = "ranking_history.db") -> sqlite3.Connection:
+def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     """SQLite 데이터베이스를 초기화하고 테이블을 생성한다."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-
-    # Enable foreign keys
     cur.execute("PRAGMA foreign_keys = ON;")
 
     cur.execute("""
@@ -62,7 +61,6 @@ def insert_platform(conn: sqlite3.Connection, name: str) -> int:
 
 def insert_category(conn: sqlite3.Connection, name: str, url: str, platform_id: int) -> int:
     cur = conn.cursor()
-    # Update URL if it changes, but primarily check existence by name + platform
     cur.execute(
         "INSERT OR IGNORE INTO category (name, url, platform_id) VALUES (?, ?, ?)",
         (name, url, platform_id),

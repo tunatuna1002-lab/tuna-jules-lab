@@ -8,27 +8,7 @@ from src.database import init_db, save_rankings
 from src.crawlers.amazon import scrape_amazon_category
 from src.crawlers.cosme import scrape_cosme_category
 from src.rag import RankingRAG
-from src.knowledge_graph import build_graph
-
-# --- Configuration ---
-DB_PATH = "ranking_history.db"
-
-# Target URLs
-AMAZON_URLS = {
-    "Beauty Best Sellers": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care/zgbs/beauty/ref=zg_bs_nav_beauty_0",
-    "Lip Care": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Lip-Care-Products/zgbs/beauty/3761351/ref=zg_bs_nav_beauty_2_11060451",
-    "Skin Care": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Skin-Care-Products/zgbs/beauty/11060451/ref=zg_bs_nav_beauty_1",
-    "Lip Makeup": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Lip-Makeup/zgbs/beauty/11059031/ref=zg_bs_nav_beauty_2_11058281",
-    "Face Powder": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Face-Powder/zgbs/beauty/11058971/ref=zg_bs_nav_beauty_3_11058691"
-}
-
-COSME_URLS = {
-    "Products Ranking": "https://www.cosme.net/ranking/products",
-    "Category 800": "https://www.cosme.net/categories/item/800/",
-    "Category 1005": "https://www.cosme.net/categories/item/1005/",
-    "Category 904": "https://www.cosme.net/categories/item/904/",
-    "Category 803": "https://www.cosme.net/categories/item/803/"
-}
+from src.config import DB_PATH, AMAZON_URLS, COSME_URLS
 
 def perform_crawling():
     print(f"[{time.ctime()}] Starting crawl job...")
@@ -43,7 +23,7 @@ def perform_crawling():
             save_rankings(conn, "Amazon US", cat_name, url, records)
             print(f"    Saved {len(records)} records.")
         else:
-            print("    Failed to fetch or parse.")
+            print("    Failed to fetch or parse (Amazon may be blocking requests).")
 
     # @cosme
     print("Crawling @cosme JP...")
