@@ -1,0 +1,9 @@
+requests
+beautifulsoup4
+playwright
+networkx
+pandas
+sentence-transformers
+chromadb
+google-generativeai
+apscheduler
