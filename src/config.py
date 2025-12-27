@@ -7,6 +7,9 @@ CHROMA_PATH = "./chroma_db"
 # Embedding Model
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
+# LLM Model
+LLM_MODEL_NAME = "gemini-pro"
+
 # Target URLs
 AMAZON_URLS = {
     "Beauty Best Sellers": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care/zgbs/beauty/ref=zg_bs_nav_beauty_0",
@@ -14,14 +17,6 @@ AMAZON_URLS = {
     "Skin Care": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Skin-Care-Products/zgbs/beauty/11060451/ref=zg_bs_nav_beauty_1",
     "Lip Makeup": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Lip-Makeup/zgbs/beauty/11059031/ref=zg_bs_nav_beauty_2_11058281",
     "Face Powder": "https://www.amazon.com/Best-Sellers-Beauty-Personal-Care-Face-Powder/zgbs/beauty/11058971/ref=zg_bs_nav_beauty_3_11058691"
-}
-
-COSME_URLS = {
-    "Products Ranking": "https://www.cosme.net/ranking/products",
-    "Category 800": "https://www.cosme.net/categories/item/800/",
-    "Category 1005": "https://www.cosme.net/categories/item/1005/",
-    "Category 904": "https://www.cosme.net/categories/item/904/",
-    "Category 803": "https://www.cosme.net/categories/item/803/"
 }
 
 # User Agents

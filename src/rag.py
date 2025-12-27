@@ -2,8 +2,10 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 import sqlite3
 import networkx as nx
+import os
+import google.generativeai as genai
 from typing import List, Dict, Any
-from src.config import DB_PATH, CHROMA_PATH, EMBEDDING_MODEL_NAME
+from src.config import DB_PATH, CHROMA_PATH, EMBEDDING_MODEL_NAME, LLM_MODEL_NAME
 from src.knowledge_graph import build_graph
 
 class RankingRAG:
@@ -16,11 +18,10 @@ class RankingRAG:
         self.collection = self.chroma_client.get_or_create_collection(name="ranking_records")
 
         # Initialize Graph (Lazily or eager)
-        # In a real app, you might cache this or load it on demand
         try:
             self.graph = build_graph(DB_PATH)
         except Exception:
-            self.graph = nx.DiGraph() # fallback if DB empty
+            self.graph = nx.DiGraph()
 
     def index_data(self):
         """
@@ -100,28 +101,19 @@ class RankingRAG:
         if results['documents']:
             for i, doc in enumerate(results['documents'][0]):
                 retrieved_texts.append(doc)
-                # Check metadata for product ID to traverse graph
                 meta = results['metadatas'][0][i]
                 if 'product_id' in meta:
                     product_ids_found.add(meta['product_id'])
 
         # Graph Augmentation
-        # For each found product, find other related info in the graph (e.g., other categories it belongs to)
         if self.graph:
             for pid in product_ids_found:
                 node_id = f"Prod{pid}"
                 if self.graph.has_node(node_id):
-                    # Find all rankings for this product
-                    # Edges: Product --rankedAs--> Ranking
-                    ranking_nodes = [n for n in self.graph.successors(node_id)]
-
-                    # We can't list ALL, but maybe mention "Also ranked in..."
-                    # Or find if it is listed in other categories
-
                     # Traverse: Product -> Ranking -> Category
+                    ranking_nodes = [n for n in self.graph.successors(node_id)]
                     categories = set()
                     for r_node in ranking_nodes:
-                         # Ranking -> Category
                          for neighbor in self.graph.successors(r_node):
                              if neighbor.startswith("C"):
                                  cat_name = self.graph.nodes[neighbor].get('name', 'Unknown')
@@ -155,23 +147,31 @@ Answer:
 """
         return prompt.strip()
 
-    def mock_llm_call(self, prompt: str) -> str:
+    def call_llm(self, prompt: str) -> str:
         """
-        Simulates the LLM generation.
+        Calls the Google Gemini API to generate the response.
+        Requires GOOGLE_API_KEY environment variable.
         """
-        return (
-            "[MOCK LLM OUTPUT]\n"
-            "Based on the retrieved data and knowledge graph insights, here is the analysis:\n"
-            "The system found relevant ranking information. "
-            "Laneige products (or similar competitors) have been tracked in the database. "
-            "Graph traversal indicates the product appears in multiple categories.\n"
-            "(Please configure a valid API key in `src/rag.py` to generate a full natural language response.)"
-        )
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            return (
+                "[WARNING] GOOGLE_API_KEY not found in environment variables.\n"
+                "Please set it to use the AI generation features.\n\n"
+                "Context Retrieved (Raw):\n" + prompt.split("Context Data:")[1].split("User Question:")[0]
+            )
+
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(LLM_MODEL_NAME)
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            return f"[ERROR] Failed to call Google API: {e}"
 
     def answer_question(self, query: str) -> str:
         context = self.retrieve_context(query)
         prompt = self.generate_prompt(query, context)
-        answer = self.mock_llm_call(prompt)
+        answer = self.call_llm(prompt)
         return answer
 
 if __name__ == "__main__":

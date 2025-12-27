@@ -6,9 +6,8 @@ import sqlite3
 from apscheduler.schedulers.blocking import BlockingScheduler
 from src.database import init_db, save_rankings
 from src.crawlers.amazon import scrape_amazon_category
-from src.crawlers.cosme import scrape_cosme_category
 from src.rag import RankingRAG
-from src.config import DB_PATH, AMAZON_URLS, COSME_URLS
+from src.config import DB_PATH, AMAZON_URLS
 
 def perform_crawling():
     print(f"[{time.ctime()}] Starting crawl job...")
@@ -24,17 +23,6 @@ def perform_crawling():
             print(f"    Saved {len(records)} records.")
         else:
             print("    Failed to fetch or parse (Amazon may be blocking requests).")
-
-    # @cosme
-    print("Crawling @cosme JP...")
-    for cat_name, url in COSME_URLS.items():
-        print(f"  - {cat_name}")
-        records = scrape_cosme_category(url)
-        if records:
-            save_rankings(conn, "@cosme JP", cat_name, url, records)
-            print(f"    Saved {len(records)} records.")
-        else:
-            print("    Failed to fetch or parse.")
 
     conn.close()
 
@@ -75,7 +63,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Command: crawl
-    subparsers.add_parser("crawl", help="Run the crawler immediately for all URLs")
+    subparsers.add_parser("crawl", help="Run the crawler immediately for Amazon URLs")
 
     # Command: ask
     ask_parser = subparsers.add_parser("ask", help="Ask a question to the RAG system")

@@ -1,18 +1,18 @@
 # Beauty Ranking Crawler & Graph-RAG System
 
-This project is a Python-based system that periodically scrapes beauty product rankings from **Amazon US** and **@cosme JP**, stores the data in a SQLite database, builds a Knowledge Graph, and provides a Retrieval-Augmented Generation (RAG) interface for natural language queries.
+This project is a Python-based system that periodically scrapes beauty product rankings from **Amazon US**, stores the data in a SQLite database, builds a Knowledge Graph, and provides a Retrieval-Augmented Generation (RAG) interface for natural language queries using **Google Gemini**.
 
 ## Features
 
-- **Multi-Platform Crawler:**
+- **Platform Crawler:**
   - **Amazon US:** Scrapes Best Sellers using `requests` with robust User-Agent rotation to handle anti-bot measures.
-  - **@cosme JP:** Scrapes ranking pages using `Playwright` to handle dynamic content and Japanese text.
 - **Data Storage:** SQLite database with a normalized schema (Platform, Category, Product, Ranking).
 - **Knowledge Graph:** Builds a `networkx` graph modeling relationships (e.g., `Product --rankedAs--> Ranking --belongsTo--> Category`).
 - **Graph-RAG:**
   - Indexes ranking records into a Vector Database (`ChromaDB`) using `SentenceTransformers`.
   - Retrieves relevant context for user queries.
-  - Generates natural language answers (currently using a Mock LLM, ready for Google Gemini/OpenAI integration).
+  - Augments context with Graph traversals (e.g. cross-category listings).
+  - Generates natural language answers using **Google Gemini API**.
 - **CLI Interface:** Easy-to-use command line tools for crawling, querying, and exporting data.
 
 ## Installation
@@ -28,15 +28,16 @@ This project is a Python-based system that periodically scrapes beauty product r
    pip install -r requirements.txt
    ```
 
-3. **Install Playwright browsers:**
+3. **Set up Google API Key:**
+   Get an API key from [Google AI Studio](https://aistudio.google.com/) and export it:
    ```bash
-   playwright install chromium
+   export GOOGLE_API_KEY="your_api_key_here"
    ```
 
 ## Usage
 
 ### 1. Crawl Data
-Run the crawler manually to fetch the latest rankings from all configured URLs.
+Run the crawler manually to fetch the latest rankings from configured Amazon URLs.
 ```bash
 python main.py crawl
 ```
@@ -63,19 +64,14 @@ python main.py export --file my_rankings.csv
 
 Settings are located in `src/config.py`:
 - `AMAZON_URLS`: Dictionary of Amazon Best Seller URLs.
-- `COSME_URLS`: Dictionary of @cosme ranking URLs.
 - `DB_PATH`: Path to the SQLite database file.
 - `CHROMA_PATH`: Path to the ChromaDB vector store.
+- `LLM_MODEL_NAME`: The Gemini model to use (default: `gemini-pro`).
 
 ## Architecture
 
-- **`src/crawlers/`**: Modules for scraping specific platforms.
+- **`src/crawlers/`**: Modules for scraping.
 - **`src/database.py`**: SQLite schema and data access layer.
 - **`src/knowledge_graph.py`**: Logic to transform DB records into a NetworkX graph.
-- **`src/rag.py`**: RAG pipeline (Indexing, Retrieval, Prompt Generation).
+- **`src/rag.py`**: RAG pipeline (Indexing, Retrieval, Generation via Google SDK).
 - **`main.py`**: Entry point and CLI handler.
-
-## Note on LLM
-The current implementation uses a **Mock LLM** function in `src/rag.py` to demonstrate the pipeline without requiring an API key. To enable real generation:
-1. Obtain an API key (e.g., Google Gemini or OpenAI).
-2. Uncomment the LLM integration code in `src/rag.py`.
